@@ -13,17 +13,30 @@ df = dataset\
     .select("ID", "SecType", "Date", "Time", col("Close").cast("double"))
 
 
+df = df.withColumn("Hour", substring(col("Time"), 1, 2))
 df = df.withColumn("datetime", concat(col("Date"), lit(" "), col("Time")))
 
 # Cast the concatenated column to a timestamp
 df = df.withColumn("DateTime", to_timestamp(concat_ws(" ", col("Date"), col("Time")), "dd-MM-yyyy HH:mm:ss.SSS"))
 
-df.show()
-
-#df.createOrReplaceTempView("table")
 
 
-#query = "select * from table where Close > 0 or  current_price > 0 or Currency > 0 limit 100"
-#spark.sql(query).show()
+
+#df.show()
+
+df.createOrReplaceTempView("table")
+
+
+query = """
+select ID, Date, AVG(price_diff), STDDEV_POP(price_diff)
+from (select ID, Date,Hour, Close, LAG(Close,1,0) over (ORDER BY Hour) as prev_price,
+Close - LAG(Close,1,0) over (ORDER BY Hour) as price_diff
+from table
+)
+group by ID, Date
+
+
+"""
+spark.sql(query).show()
 
 spark.stop()
